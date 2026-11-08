@@ -159,6 +159,30 @@ Status of each surface:
   models through the public API cannot declare `targetChatSessionType`, so it
   cannot populate that list before a session exists.
 
+## Signed-out sessions (no GitHub login)
+
+`copilotcli` is a Copilot-backed harness, so the Agents Window normally refuses
+to start a session while the renderer is signed out:
+
+```
+Sign in to use GitHub Copilot
+Authentication is required to start a session. Please sign in and try again.
+```
+
+The host's own Copilot credentials are irrelevant to that check — it runs in the
+browser and looks at the renderer's GitHub account only.
+
+Both shells therefore set:
+
+```json
+"chat.allowAnonymousAccess": true
+```
+
+With `entitlement === Unknown` and anonymous enabled, the `SignInRequired`
+branch in `getSessionTypeAvailability` is skipped, and `copilotcli` resolves to
+available through its Auto fallback. The same setting can be toggled per browser
+in Settings ("Chat: Allow Anonymous Access") without a rebuild.
+
 ## Build
 
 The workflow runs on `ubuntu-22.04` with Node from `.nvmrc`. It mirrors the
