@@ -49,7 +49,10 @@ jobs:
           fi
           files="$(gh api "repos/$GITHUB_REPOSITORY/compare/$VSCODE_COMMIT...$GITHUB_SHA" --jq '.files[] | .status + " " + .filename')"
           printf '%s\n' "$files"
-          allowed='^(added|modified) (\.github/workflows/[^/]+\.yml|README-container\.md)$|^added docker/[^/]+$'
+          # docker/ is the authored container tree (nginx config, shells, the
+          # BYOK extension, runtime config). Nothing under src/, build/,
+          # extensions/ or product.json is allowed to change.
+          allowed='^(added|modified) (\.github/workflows/[^/]+\.yml|README-container\.md|docker/.+)$'
           if printf '%s\n' "$files" | grep -Ev "$allowed" | grep -q .; then
             echo "::error::branch changes files outside the allowed new-file set"
             exit 1
