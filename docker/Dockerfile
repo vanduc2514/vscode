@@ -20,12 +20,6 @@ COPY ThirdPartyNotices.txt /usr/share/nginx/html/ThirdPartyNotices.txt
 # Processed by /docker-entrypoint.d/20-envsubst-on-templates.sh at startup.
 COPY docker/nginx.conf.template /etc/nginx/templates/default.conf.template
 
-# Same-origin WebSocket reverse proxy target for /ahp. Point this at an HTTP(S)
-# origin such as http://agent-host:8080; the container never terminates TLS for
-# the upstream, so use https:// for a TLS upstream. The default is a closed port
-# so /ahp returns 502 until it is configured.
-ENV AHP_UPSTREAM=http://127.0.0.1:9
-
 # Same-origin OpenAI-compatible endpoint for the BYOK provider extension.
 # Point this at an HTTP(S) origin, for example http://host.docker.internal:4000.
 # The request path after /llm/ is forwarded unchanged, so /llm/v1/chat/completions

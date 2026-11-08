@@ -15,7 +15,7 @@ byte-identical to the tag.
 
 - `.github/workflows/container.yml` - builds the web artifact and pushes the image
 - `docker/Dockerfile` - `nginx:alpine` runtime image, no compilation in the image
-- `docker/nginx.conf.template` - MIME types, gzip, caching, `/healthz`, `/agents`, `/ahp`
+- `docker/nginx.conf.template` - MIME types, gzip, caching, `/healthz`, `/agents`, `/llm`
 - `docker/index.html` - workbench shell (authored, because the `web` build emits no HTML)
 - `docker/agents.html` - Agents Window shell
 - `docker/config.json` - default (empty) remote agent host configuration
@@ -44,6 +44,12 @@ docker run --rm -d --name agents-ui -p 8099:80 \
 Open `http://localhost:8099/` for the IDE and
 `http://localhost:8099/agents` for the Agents Window.
 
+The agent host is dialled by the **browser**, not by the container: the
+workbench and its extension host run in the page. Configure a `remoteAgentHosts`
+`address` the browser can reach, for example `ws://localhost:3011` when the
+browser runs on the same machine as the host. A remote browser needs that port
+published, or its own proxy.
+
 Health check:
 
 ```bash
@@ -63,7 +69,7 @@ too late and produces `Cannot determine URI for module id!`.
 
 Both scripts are authored files; no upstream source is patched.
 
-## Remote agent hosts (AHP)
+## Remote agent hosts (AHP over WebSocket)
 
 Both pages fetch `/config.json` at boot (no rebuild needed) and pass the entries
 to the `chat.remoteAgentHosts` setting. `chat.remoteAgentHostsEnabled` is always
@@ -103,23 +109,6 @@ The flag is the same one the upstream sessions code uses for smoke tests.
 Remove the small script block in `agents.html` if you want the sign-in gate
 back.
 
-### Same-origin WebSocket proxy
-
-`/ahp` is proxied by nginx so a WebSocket agent host can be same-origin. Set
-`AHP_UPSTREAM` to an HTTP(S) origin; nginx handles the `Upgrade` and
-`Connection` headers and disables buffering:
-
-```bash
-docker run --rm -d --name agents-ui -p 8099:80 \
-  -e AHP_UPSTREAM=http://agent-host:8080 \
-  ghcr.io/vanduc2514/vscode:1.145.2
-```
-
-Then configure an agent host address such as `ws://localhost:8099/ahp`. The
-upstream value is an HTTP(S) URL, not a `ws://` URL. The default
-`http://127.0.0.1:9` intentionally points at a closed port so `/ahp` returns
-502 until it is configured.
-
 ## BYOK models (bring your own key)
 
 `docker/extensions/byok-openai` is an authored web extension that registers
@@ -149,13 +138,17 @@ HTTP(S) origin and the container proxies the browser's model calls same-origin:
 
 ```bash
 docker run --rm -d --name agents-ui -p 8099:80 \
-  -e AHP_UPSTREAM=http://host.docker.internal:3011 \
   -e LLM_UPSTREAM=https://api.deepseek.com \
   -v "$PWD/config.json:/usr/share/nginx/html/config.json:ro" \
   ghcr.io/vanduc2514/vscode:1.145.2
 ```
 
-The extension also sets `github.copilot.clientByokEnabled`,
+The model call runs in the browser, so the container only needs to be reachable
+when `baseUrl` points at `/llm`. With a direct HTTPS base URL (DeepSeek sends
+permissive CORS) `/llm` is unused; it exists for gateways that omit CORS
+headers.
+
+The BYOK extension also sets `github.copilot.clientByokEnabled`,
 `github.copilot.hasByokModels` and `chatNonCopilotModelsAreUserSelectable`, and
 re-asserts them for two minutes, because the workbench re-derives
 `hasByokModels` from the Copilot extension that this image does not ship.
