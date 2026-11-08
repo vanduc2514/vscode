@@ -30,11 +30,28 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Verify pinned commit
+      - name: Verify pinned lineage and added-only diff
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          actual="$(git rev-parse HEAD)"
-          if [ "$actual" != "$VSCODE_COMMIT" ]; then
-            echo "::error::HEAD $actual does not match pinned commit $VSCODE_COMMIT"
+          set -euo pipefail
+          meta="$(gh api "repos/$GITHUB_REPOSITORY/compare/$VSCODE_COMMIT...$GITHUB_SHA" --jq '.status + " " + (.ahead_by|tostring)')"
+          status="${meta%% *}"
+          ahead="${meta##* }"
+          echo "compare status=$status ahead_by=$ahead"
+          if [ "$status" != "ahead" ]; then
+            echo "::error::branch is not ahead of the pinned commit $VSCODE_COMMIT"
+            exit 1
+          fi
+          if [ "$ahead" -lt 1 ]; then
+            echo "::error::branch has no commit on top of the pinned commit"
+            exit 1
+          fi
+          files="$(gh api "repos/$GITHUB_REPOSITORY/compare/$VSCODE_COMMIT...$GITHUB_SHA" --jq '.files[] | .status + " " + .filename')"
+          printf '%s\n' "$files"
+          allowed='^(added|modified) (\.github/workflows/[^/]+\.yml|README-container\.md)$|^added docker/[^/]+$'
+          if printf '%s\n' "$files" | grep -Ev "$allowed" | grep -q .; then
+            echo "::error::branch changes files outside the allowed new-file set"
             exit 1
           fi
 
