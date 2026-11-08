@@ -12,6 +12,10 @@
 	<link rel="manifest" href="./manifest.json" />
 	<link rel="apple-touch-icon" href="./code-192.png" />
 	<link rel="stylesheet" href="./out/vs/workbench/workbench.web.main.internal.css" />
+	<script src="./out/nls.messages.js"></script>
+	<script>
+		globalThis._VSCODE_FILE_ROOT = new URL('./out/', document.location.href).toString();
+	</script>
 	<style>
 		html,
 		body {

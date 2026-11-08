@@ -29,6 +29,11 @@ ghcr.io/vanduc2514/vscode:latest
 ghcr.io/vanduc2514/vscode:c4453f8ea430795f941c1b2ff6c9321135a74a02
 ```
 
+The tag is a multi-architecture manifest for `linux/amd64` and `linux/arm64`.
+The GHCR package is public; no `docker login` is required. On a client that
+cannot consume the arm64 entry (for example an older x86 Docker without
+emulation), pull explicitly with `--platform linux/amd64`.
+
 ## Run
 
 ```bash
@@ -44,6 +49,19 @@ Health check:
 ```bash
 curl -fsS http://localhost:8099/healthz
 ```
+
+## Shell bootstrap
+
+The `web` artifact contains `out/nls.messages.js`, which installs the
+`_VSCODE_NLS_MESSAGES` table. Both shells load it as a classic script before the
+module; without it the workbench aborts with `NLS MISSING`.
+
+The shells also set `globalThis._VSCODE_FILE_ROOT` to `<base>/out/` in a classic
+script before the module graph evaluates. The bundle calls `asFileUri()` for
+icons while its top-level code runs, so setting this inside the module body is
+too late and produces `Cannot determine URI for module id!`.
+
+Both scripts are authored files; no upstream source is patched.
 
 ## Remote agent hosts (AHP)
 
@@ -125,6 +143,9 @@ their own HTML shells, so this repository authors `docker/index.html` and
 `out/vs/workbench/workbench.web.main.internal.css` (the same mechanism the live
 vscode.dev page uses); no CSS import map is required because the bundles do not
 import CSS modules.
+
+The image is built for `linux/amd64` and `linux/arm64` with QEMU and exported as
+one multi-architecture manifest.
 
 `additionalBuiltinExtensions` points at `extensions/theme-defaults` and
 `extensions/theme-seti` so the workbench is themed at first paint.
