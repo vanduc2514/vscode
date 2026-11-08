@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no" />
+	<meta name="theme-color" content="#1e1e1e" />
+	<meta name="mobile-web-app-capable" content="yes" />
+	<meta name="apple-mobile-web-app-capable" content="yes" />
+	<meta name="apple-mobile-web-app-title" content="Code - OSS Agents" />
+	<title>Code - OSS Agents</title>
+	<link rel="icon" href="./favicon.ico" type="image/x-icon" />
+	<link rel="manifest" href="./manifest.json" />
+	<link rel="apple-touch-icon" href="./code-192.png" />
+	<link rel="stylesheet" href="./out/vs/sessions/sessions.web.main.internal.css" />
+	<style>
+		html,
+		body {
+			margin: 0;
+			padding: 0;
+			height: 100%;
+			overflow: hidden;
+			background: #1e1e1e;
+		}
+	</style>
+</head>
+<body>
+	<script type="module">
+		import { create, URI } from './out/vs/sessions/sessions.web.main.internal.js';
+
+		const base = new URL('.', document.location.href);
+		const asUri = path => URI.parse(new URL(path, base).toString());
+
+		async function readAgentHosts() {
+			try {
+				const response = await fetch('./config.json', { cache: 'no-store' });
+				if (!response.ok) {
+					return [];
+				}
+				const config = await response.json();
+				const hosts = Array.isArray(config) ? config : Array.isArray(config.remoteAgentHosts) ? config.remoteAgentHosts : [];
+				return hosts.filter(host => host && typeof host.name === 'string' && typeof host.address === 'string');
+			} catch {
+				return [];
+			}
+		}
+
+		function createSecretStorage() {
+			const key = 'code-oss-container.agents.secrets';
+			const read = () => {
+				try {
+					return JSON.parse(localStorage.getItem(key) || '{}');
+				} catch {
+					return {};
+				}
+			};
+			const write = data => localStorage.setItem(key, JSON.stringify(data));
+			return {
+				type: 'persisted',
+				async get(name) { return read()[name]; },
+				async set(name, value) { const data = read(); data[name] = value; write(data); },
+				async delete(name) { const data = read(); delete data[name]; write(data); },
+				async keys() { return Object.keys(read()); }
+			};
+		}
+
+		const commit = 'c4453f8ea430795f941c1b2ff6c9321135a74a02';
+		const docsUrl = 'https://github.com/vanduc2514/vscode';
+		const remoteAgentHosts = await readAgentHosts();
+
+		create(document.body, {
+			settingsSyncOptions: {
+				enabled: false
+			},
+			workspaceProvider: {
+				trusted: true,
+				workspace: undefined,
+				open: async () => false,
+				payload: [['isSessionsWindow', 'true']]
+			},
+			secretStorageProvider: createSecretStorage(),
+			additionalBuiltinExtensions: [
+				asUri('./extensions/theme-defaults'),
+				asUri('./extensions/theme-seti')
+			],
+			initialColorTheme: {
+				themeType: 'dark'
+			},
+			productConfiguration: {
+				nameShort: 'Code - OSS Agents',
+				nameLong: 'Code - OSS Agents',
+				applicationName: 'code-oss',
+				dataFolderName: '.vscode-oss',
+				sharedDataFolderName: '.vscode-oss-shared',
+				version: '1.145.2',
+				commit,
+				quality: 'stable',
+				enableTelemetry: false,
+				embedderIdentifier: 'code-oss-container',
+				licenseName: 'MIT',
+				licenseUrl: 'https://github.com/vanduc2514/vscode/blob/container-1.145.2/LICENSE.txt',
+				serverLicenseUrl: 'https://github.com/vanduc2514/vscode/blob/container-1.145.2/LICENSE.txt',
+				documentationUrl: 'https://github.com/vanduc2514/vscode',
+				releaseNotesUrl: 'https://github.com/vanduc2514/vscode',
+				reportIssueUrl: 'https://github.com/vanduc2514/vscode/issues',
+				requestFeatureUrl: 'https://github.com/vanduc2514/vscode/issues',
+				keyboardShortcutsUrlMac: '',
+				keyboardShortcutsUrlLinux: '',
+				keyboardShortcutsUrlWin: '',
+				introductoryVideosUrl: '',
+				tipsAndTricksUrl: '',
+				newsletterSignupUrl: '',
+				youTubeUrl: '',
+				urlProtocol: 'code-oss',
+				voiceWsUrl: '',
+				webviewContentExternalBaseUrlTemplate: new URL('./out/vs/workbench/contrib/webview/browser/pre/', base).toString(),
+				extensionsGallery: {
+					serviceUrl: 'https://open-vsx.org/vscode/gallery',
+					itemUrl: 'https://open-vsx.org/vscode/item',
+					resourceUrlTemplate: 'https://open-vsx.org/vscode/unpkg/{publisher}/{name}/{version}/{path}'
+				},
+				defaultChatAgent: {
+					extensionId: 'GitHub.copilot',
+					chatExtensionId: 'GitHub.copilot-chat',
+					chatExtensionOutputId: 'GitHub.copilot-chat.GitHub Copilot Chat.log',
+					chatExtensionOutputExtensionStateCommand: 'github.copilot.debug.extensionState',
+					documentationUrl: docsUrl,
+					skusDocumentationUrl: docsUrl,
+					optimizeUsageDocumentationUrl: docsUrl,
+					publicCodeMatchesUrl: docsUrl,
+					managePlanUrl: docsUrl,
+					upgradePlanUrl: docsUrl,
+					signUpUrl: docsUrl,
+					termsStatementUrl: docsUrl,
+					privacyStatementUrl: docsUrl,
+					provider: {
+						default: { id: 'github', name: 'GitHub' },
+						enterprise: { id: 'github-enterprise', name: 'GHE' },
+						google: { id: 'google', name: 'Google' },
+						apple: { id: 'apple', name: 'Apple' },
+						microsoft: { id: 'microsoft', name: 'Microsoft' }
+					},
+					providerExtensionId: 'vscode.github-authentication',
+					providerUriSetting: 'github-enterprise.uri',
+					providerScopes: [],
+					entitlementUrl: '',
+					entitlementSignupLimitedUrl: '',
+					tokenEntitlementUrl: '',
+					mcpRegistryDataUrl: '',
+					mcpConnectorsUrl: '',
+					managedSettingsUrl: '',
+					chatQuotaExceededContext: 'github.copilot.chat.quotaExceeded',
+					completionsQuotaExceededContext: 'github.copilot.completions.quotaExceeded',
+					walkthroughCommand: 'github.copilot.open.walkthrough',
+					completionsMenuCommand: 'github.copilot.toggleStatusMenu',
+					chatRefreshTokenCommand: 'github.copilot.refreshToken',
+					generateCommitMessageCommand: 'github.copilot.git.generateCommitMessage',
+					resolveMergeConflictsCommand: 'github.copilot.git.resolveMergeConflicts',
+					completionsAdvancedSetting: 'github.copilot.advanced',
+					completionsEnablementSetting: 'github.copilot.enable',
+					nextEditSuggestionsSetting: 'github.copilot.nextEditSuggestions.enabled'
+				}
+			},
+			configurationDefaults: {
+				'workbench.colorTheme': 'Dark 2026',
+				'chat.remoteAgentHostsEnabled': true,
+				'chat.remoteAgentHosts': remoteAgentHosts,
+				'telemetry.telemetryLevel': 'off'
+			}
+		});
+	</script>
+</body>
+</html>

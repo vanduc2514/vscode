@@ -1,0 +1,183 @@
+name: container-vscode-web
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - container-1.145.2
+    paths-ignore:
+      - README-container.md
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+  VSCODE_TAG: '1.145.2'
+  VSCODE_COMMIT: 'c4453f8ea430795f941c1b2ff6c9321135a74a02'
+  IMAGE: ghcr.io/vanduc2514/vscode
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+    steps:
+      - name: Checkout pinned branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify pinned commit
+        run: |
+          actual="$(git rev-parse HEAD)"
+          if [ "$actual" != "$VSCODE_COMMIT" ]; then
+            echo "::error::HEAD $actual does not match pinned commit $VSCODE_COMMIT"
+            exit 1
+          fi
+
+      - name: Free disk space
+        run: |
+          set -x
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/share/boost /opt/hostedtoolcache/CodeQL
+          sudo apt-get clean
+          docker system prune -af
+          df -h
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libkrb5-dev
+
+      - name: Restore vscode-web build
+        id: cache-web
+        uses: actions/cache/restore@v4
+        with:
+          path: vscode-web
+          key: vscode-web-${{ env.VSCODE_TAG }}-${{ env.VSCODE_COMMIT }}-v1
+
+      - name: Install dependencies
+        if: steps.cache-web.outputs.cache-hit != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for attempt in 1 2 3 4 5; do
+            npm ci && break
+            if [ "$attempt" = "5" ]; then
+              echo "::error::npm ci failed after 5 attempts"
+              exit 1
+            fi
+            sleep 15
+          done
+
+      - name: Install build tooling dependencies
+        if: steps.cache-web.outputs.cache-hit != 'true'
+        run: npm ci --prefix build --no-audit --no-fund || echo "::warning::build/ npm ci failed; continuing with root dependencies"
+
+      - name: Compile core
+        if: steps.cache-web.outputs.cache-hit != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run gulp core-ci
+
+      - name: Build web bundle
+        if: steps.cache-web.outputs.cache-hit != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run gulp vscode-web-min-ci
+
+      - name: Move build output into workspace
+        if: steps.cache-web.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          test -d "$GITHUB_WORKSPACE/../vscode-web"
+          rm -rf vscode-web
+          mv "$GITHUB_WORKSPACE/../vscode-web" vscode-web
+
+      - name: Save vscode-web build
+        if: steps.cache-web.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: vscode-web
+          key: vscode-web-${{ env.VSCODE_TAG }}-${{ env.VSCODE_COMMIT }}-v1
+
+      - name: Verify required bundles
+        run: |
+          set -euo pipefail
+          for path in \
+            out/vs/workbench/workbench.web.main.internal.js \
+            out/vs/workbench/workbench.web.main.internal.css \
+            out/vs/sessions/sessions.web.main.internal.js \
+            out/vs/sessions/sessions.web.main.internal.css \
+            extensions/theme-defaults/package.json \
+            extensions/theme-seti/package.json; do
+            if [ ! -f "vscode-web/$path" ]; then
+              echo "::error::missing required artifact: vscode-web/$path"
+              exit 1
+            fi
+          done
+          stat -c '%n %s bytes' \
+            vscode-web/out/vs/workbench/workbench.web.main.internal.js \
+            vscode-web/out/vs/workbench/workbench.web.main.internal.css \
+            vscode-web/out/vs/sessions/sessions.web.main.internal.js \
+            vscode-web/out/vs/sessions/sessions.web.main.internal.css
+
+      - name: Stage container build context
+        run: |
+          set -euo pipefail
+          rm -rf .build-container
+          mkdir -p .build-container
+          mv vscode-web .build-container/vscode-web
+          cp -R docker .build-container/docker
+          cp LICENSE.txt ThirdPartyNotices.txt .build-container/
+
+      - name: Reclaim build disk space
+        run: |
+          rm -rf node_modules out out-build out-vscode-web out-vscode-web-min .build
+          df -h
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .build-container
+          file: .build-container/docker/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ env.VSCODE_TAG }}
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ env.VSCODE_COMMIT }}
+          labels: |
+            org.opencontainers.image.title=Code - OSS web
+            org.opencontainers.image.description=Self-hosted Code - OSS web IDE and Agents Window
+            org.opencontainers.image.source=https://github.com/vanduc2514/vscode
+            org.opencontainers.image.version=${{ env.VSCODE_TAG }}
+            org.opencontainers.image.revision=${{ env.VSCODE_COMMIT }}
+            org.opencontainers.image.licenses=MIT
+
+      - name: Report image digest
+        run: |
+          echo "image=${{ env.IMAGE }}@${{ steps.build.outputs.digest }}"
+          {
+            echo "### Image digest"
+            echo ""
+            echo "\`${{ env.IMAGE }}@${{ steps.build.outputs.digest }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
