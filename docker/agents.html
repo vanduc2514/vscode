@@ -12,6 +12,17 @@
 	<link rel="manifest" href="./manifest.json" />
 	<link rel="apple-touch-icon" href="./code-192.png" />
 	<link rel="stylesheet" href="./out/vs/sessions/sessions.web.main.internal.css" />
+	<script>
+		// Upstream-supported signed-out mode: bypass the forced GitHub sign-in
+		// gate so remote agent hosts from config.json can be used directly.
+		(() => {
+			const url = new URL(document.location.href);
+			if (!url.searchParams.has('skip-sessions-welcome')) {
+				url.searchParams.set('skip-sessions-welcome', '');
+				history.replaceState(null, '', url);
+			}
+		})();
+	</script>
 	<script src="./out/nls.messages.js"></script>
 	<script>
 		globalThis._VSCODE_FILE_ROOT = new URL('./out/', document.location.href).toString();

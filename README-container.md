@@ -91,6 +91,17 @@ docker run --rm -d --name agents-ui -p 8099:80 \
 ```
 
 If `config.json` is absent or unreadable, the pages fall back to an empty list.
+A configured host appears in the Agents Window sidebar by name.
+
+## Agents signed-out mode
+
+`docker/agents.html` sets the upstream `skip-sessions-welcome` query flag before
+the workbench starts. This opens `/agents` directly in the signed-out Agents
+Window, which is what a self-hosted deployment with AHP hosts needs; the default
+GitHub sign-in gate otherwise covers the window with a non-dismissible dialog.
+The flag is the same one the upstream sessions code uses for smoke tests.
+Remove the small script block in `agents.html` if you want the sign-in gate
+back.
 
 ### Same-origin WebSocket proxy
 
