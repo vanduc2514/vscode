@@ -85,6 +85,12 @@ jobs:
         if: steps.cache-web.outputs.cache-hit != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Ubuntu 22.04 ships GCC 11.4, which cannot parse the combination of
+          # [[deprecated]] and __attribute__((visibility)) used by the Electron
+          # 43 V8 headers (USING_V8_SHARED). Disabling the deprecation-warning
+          # macros is enough; no upstream source or header is modified.
+          CFLAGS: '-UV8_DEPRECATION_WARNINGS -UV8_IMMINENT_DEPRECATION_WARNINGS'
+          CXXFLAGS: '-UV8_DEPRECATION_WARNINGS -UV8_IMMINENT_DEPRECATION_WARNINGS'
         run: |
           for attempt in 1 2 3 4 5; do
             npm ci && break

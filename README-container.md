@@ -102,6 +102,13 @@ npm run gulp core-ci
 npm run gulp vscode-web-min-ci
 ```
 
+Ubuntu 22.04 ships GCC 11.4, which cannot parse the Electron 43 V8 headers
+when `USING_V8_SHARED` and the V8 deprecation-warning macros are both defined.
+For `npm ci` only, the workflow sets `CFLAGS` and `CXXFLAGS` to undefine
+`V8_DEPRECATION_WARNINGS` and `V8_IMMINENT_DEPRECATION_WARNINGS`. This only
+silences deprecated-API warnings during native module builds and changes no
+upstream file.
+
 `vscode-web-min-ci` writes the artifact to `../vscode-web` relative to the
 repository root. The workflow moves it into the workspace, caches it under
 `vscode-web-<tag>-<commit>-v1`, verifies these files exist, and prints their
