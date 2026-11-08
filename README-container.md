@@ -15,7 +15,7 @@ byte-identical to the tag.
 
 - `.github/workflows/container.yml` - builds the web artifact and pushes the image
 - `docker/Dockerfile` - `nginx:alpine` runtime image, no compilation in the image
-- `docker/nginx.conf.template` - MIME types, gzip, caching, `/healthz`, `/agents`, `/llm`
+- `docker/nginx.conf.template` - MIME types, gzip, caching, `/healthz`, `/agents`
 - `docker/index.html` - workbench shell (authored, because the `web` build emits no HTML)
 - `docker/agents.html` - Agents Window shell
 - `docker/config.json` - default (empty) remote agent host configuration
@@ -120,7 +120,7 @@ from `/config.json`, never from the image or the HTML:
 {
   "remoteAgentHosts": [],
   "byok": {
-    "baseUrl": "/llm",
+    "baseUrl": "https://api.deepseek.com/v1",
     "apiType": "chat-completions",
     "apiKey": "sk-...",
     "models": [
@@ -132,21 +132,16 @@ from `/config.json`, never from the image or the HTML:
 ```
 
 `apiType` accepts `chat-completions` (default) or `messages` (Anthropic style).
-`baseUrl` may be `/llm` or `/llm/v1`; the extension appends
-`/v1/chat/completions` or `/v1/messages` accordingly. Set `LLM_UPSTREAM` to an
-HTTP(S) origin and the container proxies the browser's model calls same-origin:
+`baseUrl` is the OpenAI-compatible base URL, for example
+`https://api.deepseek.com/v1`; the extension appends `/chat/completions` (or
+`/messages`). Calls go straight from the browser to that origin, so it must
+send CORS headers; DeepSeek does.
 
 ```bash
 docker run --rm -d --name agents-ui -p 8099:80 \
-  -e LLM_UPSTREAM=https://api.deepseek.com \
   -v "$PWD/config.json:/usr/share/nginx/html/config.json:ro" \
   ghcr.io/vanduc2514/vscode:1.145.2
 ```
-
-The model call runs in the browser, so the container only needs to be reachable
-when `baseUrl` points at `/llm`. With a direct HTTPS base URL (DeepSeek sends
-permissive CORS) `/llm` is unused; it exists for gateways that omit CORS
-headers.
 
 The BYOK extension also sets `github.copilot.clientByokEnabled`,
 `github.copilot.hasByokModels` and `chatNonCopilotModelsAreUserSelectable`, and

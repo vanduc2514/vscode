@@ -20,13 +20,6 @@ COPY ThirdPartyNotices.txt /usr/share/nginx/html/ThirdPartyNotices.txt
 # Processed by /docker-entrypoint.d/20-envsubst-on-templates.sh at startup.
 COPY docker/nginx.conf.template /etc/nginx/templates/default.conf.template
 
-# Same-origin OpenAI-compatible endpoint for the BYOK provider extension.
-# Point this at an HTTP(S) origin, for example http://host.docker.internal:4000.
-# The request path after /llm/ is forwarded unchanged, so /llm/v1/chat/completions
-# becomes <upstream>/v1/chat/completions. The default is a closed port so /llm/
-# returns 502 until it is configured.
-ENV LLM_UPSTREAM=http://127.0.0.1:9
-
 EXPOSE 80
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
