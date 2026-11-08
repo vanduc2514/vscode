@@ -1,0 +1,43 @@
+{
+	"name": "byok-openai",
+	"displayName": "BYOK OpenAI-compatible Models",
+	"description": "Registers OpenAI-compatible language models declared in the container's /config.json.",
+	"publisher": "code-oss-container",
+	"version": "1.0.0",
+	"license": "MIT",
+	"engines": {
+		"vscode": "^1.145.0"
+	},
+	"main": "./dist/web/extension.js",
+	"browser": "./dist/web/extension.js",
+	"extensionKind": [
+		"ui",
+		"workspace"
+	],
+	"activationEvents": [
+		"*"
+	],
+	"contributes": {
+		"languageModelChatProviders": [
+			{
+				"vendor": "byok",
+				"displayName": "BYOK",
+				"configuration": {
+					"properties": {
+						"baseUrl": {
+							"type": "string",
+							"title": "Base URL",
+							"description": "OpenAI-compatible base URL, read from /config.json."
+						},
+						"apiKey": {
+							"type": "string",
+							"title": "API key",
+							"secret": true,
+							"description": "API key, read from /config.json."
+						}
+					}
+				}
+			}
+		]
+	}
+}

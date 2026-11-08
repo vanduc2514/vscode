@@ -1,3 +1,10 @@
 {
-	"remoteAgentHosts": []
+	"remoteAgentHosts": [],
+	"byok": {
+		"baseUrl": "/llm/v1",
+		"models": [
+			{ "id": "deepseek-v4-pro", "name": "DeepSeek V4 Pro" },
+			{ "id": "deepseek-flash", "name": "DeepSeek Flash" }
+		]
+	}
 }

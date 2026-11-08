@@ -10,6 +10,9 @@ COPY docker/index.html /usr/share/nginx/html/index.html
 COPY docker/agents.html /usr/share/nginx/html/agents.html
 COPY docker/config.json /usr/share/nginx/html/config.json
 
+# BYOK provider extension: registers OpenAI-compatible models from /config.json.
+COPY docker/extensions/byok-openai /usr/share/nginx/html/extensions/byok-openai
+
 # MIT attribution is required for redistribution.
 COPY LICENSE.txt /usr/share/nginx/html/LICENSE.txt
 COPY ThirdPartyNotices.txt /usr/share/nginx/html/ThirdPartyNotices.txt
@@ -22,6 +25,13 @@ COPY docker/nginx.conf.template /etc/nginx/templates/default.conf.template
 # the upstream, so use https:// for a TLS upstream. The default is a closed port
 # so /ahp returns 502 until it is configured.
 ENV AHP_UPSTREAM=http://127.0.0.1:9
+
+# Same-origin OpenAI-compatible endpoint for the BYOK provider extension.
+# Point this at an HTTP(S) origin, for example http://host.docker.internal:4000.
+# The request path after /llm/ is forwarded unchanged, so /llm/v1/chat/completions
+# becomes <upstream>/v1/chat/completions. The default is a closed port so /llm/
+# returns 502 until it is configured.
+ENV LLM_UPSTREAM=http://127.0.0.1:9
 
 EXPOSE 80
 

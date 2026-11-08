@@ -120,6 +120,57 @@ upstream value is an HTTP(S) URL, not a `ws://` URL. The default
 `http://127.0.0.1:9` intentionally points at a closed port so `/ahp` returns
 502 until it is configured.
 
+## BYOK models (bring your own key)
+
+`docker/extensions/byok-openai` is an authored web extension that registers
+OpenAI-compatible chat models with the stable
+`vscode.lm.registerLanguageModelChatProvider` API. Models and credentials come
+from `/config.json`, never from the image or the HTML:
+
+```json
+{
+  "remoteAgentHosts": [],
+  "byok": {
+    "baseUrl": "/llm",
+    "apiType": "chat-completions",
+    "apiKey": "sk-...",
+    "models": [
+      { "id": "deepseek-v4-pro", "name": "DeepSeek V4 Pro" },
+      { "id": "deepseek-flash", "name": "DeepSeek Flash" }
+    ]
+  }
+}
+```
+
+`apiType` accepts `chat-completions` (default) or `messages` (Anthropic style).
+`baseUrl` may be `/llm` or `/llm/v1`; the extension appends
+`/v1/chat/completions` or `/v1/messages` accordingly. Set `LLM_UPSTREAM` to an
+HTTP(S) origin and the container proxies the browser's model calls same-origin:
+
+```bash
+docker run --rm -d --name agents-ui -p 8099:80 \
+  -e AHP_UPSTREAM=http://host.docker.internal:3011 \
+  -e LLM_UPSTREAM=https://api.deepseek.com \
+  -v "$PWD/config.json:/usr/share/nginx/html/config.json:ro" \
+  ghcr.io/vanduc2514/vscode:1.145.2
+```
+
+The extension also sets `github.copilot.clientByokEnabled`,
+`github.copilot.hasByokModels` and `chatNonCopilotModelsAreUserSelectable`, and
+re-asserts them for two minutes, because the workbench re-derives
+`hasByokModels` from the Copilot extension that this image does not ship.
+
+Status of each surface:
+
+- Editor at `/` - works. The model picker lists the configured models while
+  signed out and preselects one.
+- Agents Window at `/agents` - the sign-in placeholder is gone (the model
+  control reads `Models, Auto`), but the composer's list is host-owned: an
+  agent-host session only accepts models the host advertises for that session,
+  and the host wires BYOK models at session launch. A provider that registers
+  models through the public API cannot declare `targetChatSessionType`, so it
+  cannot populate that list before a session exists.
+
 ## Build
 
 The workflow runs on `ubuntu-22.04` with Node from `.nvmrc`. It mirrors the
